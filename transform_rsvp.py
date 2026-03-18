@@ -19,31 +19,9 @@ class RSVP(StrEnum):
     NO_ANSWER = "No Answer"
 
 
-OUTPUT = "wedding_guest_list.csv"
+OUTPUT = "data/wedding_guest_list.csv"
 
 OUTPUT_COLUMNS = ["First name", "Last name", "Family", "Who Is", "Side", "Sex", "Age", "RSVP"]
-
-# Exceptions where first two words are the first name (3-word names)
-FIRST_TWO_WORDS_FIRST_NAME = {
-    "Ana Belem Martinez",
-    "Ana Paola Macias",
-    "Ana Sofía Henaine",
-}
-
-
-def split_name(member):
-    member = str(member).strip()
-    parts = member.split()
-    if member in FIRST_TWO_WORDS_FIRST_NAME:
-        return " ".join(parts[:2]), parts[2]
-    if len(parts) == 1:
-        return parts[0], ""
-    elif len(parts) == 2:
-        return parts[0], parts[1]
-    elif len(parts) == 3:
-        return parts[0], " ".join(parts[1:])
-    else:  # 4+
-        return parts[0], " ".join(parts[2:])
 
 
 def is_empty(val):
@@ -87,13 +65,10 @@ def main():
     # Clean
     df = clean(df)
 
-    # Split Member into first/last name
-    df[["first_name", "last_name"]] = df["Member"].apply(lambda x: pd.Series(split_name(x)))
-
     # Primary guest rows
     primary = pd.DataFrame()
-    primary["First name"] = df["first_name"]
-    primary["Last name"] = df["last_name"]
+    primary["First name"] = df["Member"].str.strip()
+    primary["Last name"] = pd.NA
     primary["Family"] = df["Group"]
     primary["RSVP"] = df.apply(resolve_rsvp, axis=1)
 
@@ -146,9 +121,8 @@ def main():
     # Only include plus ones that meet both requirements
     plus_ones_mask = has_name & has_flag
     plus_ones = pd.DataFrame()
-    plus_one_names = df.loc[plus_ones_mask, "If plus one, name?"].str.strip().apply(lambda x: pd.Series(split_name(x)))
-    plus_ones["First name"] = plus_one_names[0]
-    plus_ones["Last name"] = plus_one_names[1]
+    plus_ones["First name"] = df.loc[plus_ones_mask, "If plus one, name?"].str.strip().values
+    plus_ones["Last name"] = pd.NA
     plus_ones["Family"] = df.loc[plus_ones_mask, "Group"].values
     plus_ones["RSVP"] = primary.loc[plus_ones_mask, "RSVP"].values
 

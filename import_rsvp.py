@@ -9,7 +9,7 @@ import subprocess
 
 SPREADSHEET_ID = "1wsk-TfDQNUttVQrk6Nl0UiiXN0dZ2lklxOMD-6pksts"
 RANGE = "RSVP Tracker!B2:R140"
-OUTPUT = "rsvp_tracker.csv"
+OUTPUT = "data/rsvp_tracker.csv"
 
 
 def fetch_rsvp_data():
