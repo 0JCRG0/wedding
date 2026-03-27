@@ -1,3 +1,7 @@
 *.json
 *.csv
 /__pycache__/
+.DS_Store
+*.html
+*.zip
+data/
