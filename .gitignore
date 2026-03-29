@@ -8,3 +8,9 @@ data/
 .env
 .ipynb_checkpoints/
 *.ipynb
+*.md
+certs/
+*.pkpass
+*.pem
+*.p12
+*.cer
