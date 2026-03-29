@@ -5,3 +5,6 @@
 *.html
 *.zip
 data/
+.env
+.ipynb_checkpoints/
+*.ipynb
