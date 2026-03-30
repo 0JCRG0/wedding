@@ -27,28 +27,24 @@ TABLE_POSITIONS = {
     "Cola de Golondrina": (0 * SP,       0 * SP),
     "Alas de Cristal":    (1 * SP,       0 * SP),
     "Aurora":             (2 * SP,       0 * SP),
-    # --- Monarca (center, between patios) ---
-    "Monarca":           (1 * SP,      -1.3 * SP),
+    # --- Monarca (center, bottom of dance floor) ---
+    "Monarca":           (3.5 * SP,    -1.5 * SP),
     # --- Patio 2 (right) ---
     # Top row
-    "Zafiro":            (3.8 * SP,     1.5 * SP),
-    "Esmeralda":         (5.0 * SP,     1.5 * SP),
+    "Zafiro":            (5.5 * SP,     1.6 * SP),
+    "Esmeralda":         (6.9 * SP,     1.6 * SP),
     # Middle row
-    "Virrey":            (3.5 * SP,     0.3 * SP),
-    "Malaquita":         (4.4 * SP,     0.3 * SP),
-    "Almirante Rojo":    (5.3 * SP,     0.3 * SP),
+    "Virrey":            (5.1 * SP,     0.0 * SP),
+    "Malaquita":         (6.2 * SP,     0.0 * SP),
+    "Almirante Rojo":    (7.3 * SP,     0.0 * SP),
     # Bottom row
-    "Azul de Adonis":    (3.8 * SP,    -0.9 * SP),
-    "Cebra":             (5.0 * SP,    -0.9 * SP),
+    "Azul de Adonis":    (5.5 * SP,    -1.5 * SP),
+    "Cebra":             (6.9 * SP,    -1.5 * SP),
 }
 
 # Color palettes per view
 VIEW_COLORS = {
-    "guest_type": {
-        "colors": {"primary": "#7B68EE", "plus_one": "#F4845F"},
-        "title": "Table Assignments — Guest Type",
-    },
-    "entry": {
+"entry": {
         "colors": {
             "Burrata con prosciutto": "#7B68EE",
             "Terrina de dos salmones": "#F4845F",
@@ -83,10 +79,7 @@ def make_hover(row):
 
 
 def get_color(guest, view):
-    if view == "guest_type":
-        is_plus_one = str(guest["is_plus_one"]).strip() != ""
-        return VIEW_COLORS[view]["colors"]["plus_one" if is_plus_one else "primary"]
-    elif view == "entry":
+    if view == "entry":
         return VIEW_COLORS[view]["colors"].get(guest["entry"], "#CCCCCC")
     elif view == "main_course":
         return VIEW_COLORS[view]["colors"].get(guest["main_course"], "#CCCCCC")
@@ -96,6 +89,28 @@ def build_figure(df, view):
     tables = sorted(df["table_name"].unique())
 
     fig = go.Figure()
+
+    # Dance floor rectangle between the two patios
+    df_x0, df_x1 = 2.7 * SP, 4.5 * SP
+    df_y0, df_y1 = -0.8 * SP, 1.4 * SP
+    fig.add_shape(
+        type="rect", x0=df_x0, y0=df_y0, x1=df_x1, y1=df_y1,
+        fillcolor="rgba(220, 210, 240, 0.25)",
+        line=dict(color="rgba(180,170,200,0.5)", width=1.5, dash="dot"),
+    )
+    fig.add_annotation(
+        x=(df_x0 + df_x1) / 2, y=df_y1 - 0.3,
+        text="<b>Pista</b>",
+        showarrow=False,
+        font=dict(size=13, color="#999"),
+    )
+    # DJ at the top of the dance floor
+    fig.add_annotation(
+        x=(df_x0 + df_x1) / 2, y=df_y1 + 0.3,
+        text="DJ",
+        showarrow=False,
+        font=dict(size=11, color="#bbb"),
+    )
 
     for table_name in tables:
         cx, cy = TABLE_POSITIONS[table_name]
@@ -168,7 +183,7 @@ def build_figure(df, view):
 
     fig.update_layout(
         title=dict(text=VIEW_COLORS[view]["title"], font=dict(size=22)),
-        width=1600,
+        width=1900,
         height=1000,
         xaxis=dict(visible=False, scaleanchor="y"),
         yaxis=dict(visible=False),
@@ -181,6 +196,15 @@ def build_figure(df, view):
     return fig
 
 
+NAV_BAR = """
+<div style="font-family: Georgia, serif; text-align: center; padding: 12px 0; border-bottom: 1px solid #e8e3dd; background: #faf9f6;">
+  <a href="../index.html" style="color: #b08d6e; text-decoration: none; margin: 0 18px; font-size: 0.95rem; letter-spacing: 0.04em;">Home</a>
+  <a href="tables_entry.html" style="color: #b08d6e; text-decoration: none; margin: 0 18px; font-size: 0.95rem; letter-spacing: 0.04em;" {active_entry}>Entries</a>
+  <a href="tables_main_course.html" style="color: #b08d6e; text-decoration: none; margin: 0 18px; font-size: 0.95rem; letter-spacing: 0.04em;" {active_main_course}>Main Courses</a>
+</div>
+"""
+
+
 def main():
     df = pd.read_csv(INPUT)
     df = df.fillna("")
@@ -188,7 +212,14 @@ def main():
     for view in VIEW_COLORS:
         fig = build_figure(df, view)
         output = f"{OUTPUT_DIR}/tables_{view}.html"
-        fig.write_html(output)
+        html = fig.to_html(full_html=True)
+        # Build nav with active styling
+        active = {f"active_{v}": "" for v in VIEW_COLORS}
+        active[f"active_{view}"] = 'style="color: #2c2c2c; font-weight: bold; border-bottom: 2px solid #b08d6e; padding-bottom: 4px;"'
+        nav = NAV_BAR.format(**active)
+        html = html.replace("<body>", f"<body>{nav}", 1)
+        with open(output, "w") as f:
+            f.write(html)
         print(f"Saved {output}")
 
 
