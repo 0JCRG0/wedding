@@ -8,7 +8,7 @@ import math
 import pandas as pd
 import plotly.graph_objects as go
 
-INPUT = "data/final_guest_list.csv"
+INPUT = "data/stats/final_guest_list.csv"
 OUTPUT = "data/tables.html"
 
 # Grid layout
@@ -51,7 +51,10 @@ def main():
         cx = col * TABLE_SPACING_X
         cy = (rows_needed - 1 - row) * TABLE_SPACING_Y  # top to bottom
 
-        guests = df[df["table_name"] == table_name].reset_index(drop=True)
+        guests = df[df["table_name"] == table_name]
+        if "seat_order" in guests.columns:
+            guests = guests.sort_values("seat_order")
+        guests = guests.reset_index(drop=True)
         n = len(guests)
 
         # Place guests in a circle

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["wallet-py3k", "Pillow", "python-dotenv", "google-auth"]
+# dependencies = ["wallet-py3k", "Pillow", "python-dotenv", "google-auth", "requests"]
 # ///
 
 """
@@ -22,6 +22,7 @@ from enum import Enum
 from pathlib import Path
 
 import google.auth.jwt
+from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
 from dotenv import load_dotenv
@@ -353,6 +354,33 @@ def _create_google_save_url(
     return f"https://pay.google.com/gp/v/save/{token.decode()}"
 
 
+def _update_google_passes(table_name: str, table_guests: list[dict]) -> None:
+    """PATCH existing Google Wallet objects to update their data."""
+    image_key = table_to_image_key(table_name)
+
+    credentials = service_account.Credentials.from_service_account_file(
+        str(SERVICE_ACCOUNT_FILE),
+        scopes=GOOGLE_SCOPES,
+    )
+    session = AuthorizedSession(credentials)
+
+    base_url = "https://walletobjects.googleapis.com/walletobjects/v1/eventTicketObject"
+
+    for i, guest in enumerate(table_guests, start=1):
+        ticket_object = _build_event_ticket_object(guest, image_key, serial=i)
+        object_id = ticket_object["id"]
+
+        resp = session.patch(f"{base_url}/{object_id}", json=ticket_object)
+        if resp.status_code == 200:
+            print(f"  Updated {guest['member']} ({object_id})")
+        elif resp.status_code == 404:
+            print(f"  Not found (skipped): {guest['member']} ({object_id})")
+        else:
+            print(f"  FAILED {guest['member']}: {resp.status_code} {resp.text}")
+
+    print(f"Updated Google Wallet passes for table '{table_name}'")
+
+
 def _generate_google_passes(table_name: str, table_guests: list[dict]) -> None:
     """Generate Google Wallet save URLs for a list of guests."""
     image_key = table_to_image_key(table_name)
@@ -413,7 +441,26 @@ def main():
         default="apple",
         help="Wallet type (default: apple)",
     )
+    parser.add_argument(
+        "--update-google",
+        action="store_true",
+        help="PATCH existing Google Wallet objects instead of creating new save URLs",
+    )
     args = parser.parse_args()
+
+    if args.update_google:
+        guests = load_guests(GUEST_LIST)
+        if args.all:
+            tables = sorted({g["table_name"] for g in guests})
+        else:
+            tables = [args.table]
+        for table in tables:
+            table_guests = guests_for_table(guests, table)
+            if table_guests:
+                _update_google_passes(table, table_guests)
+            else:
+                print(f"No guests found for table '{table}'")
+        return
 
     wallet_type = WalletType(args.type)
 

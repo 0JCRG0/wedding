@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juan Carlos & Maddy — Wedding</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      color: #3a3a3a;
+      background: #faf9f6;
+    }
+
+    header {
+      text-align: center;
+      padding: 4rem 1rem 2rem;
+      background: linear-gradient(180deg, #f5f0eb 0%, #faf9f6 100%);
+    }
+
+    header h1 {
+      font-size: 2.8rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: #2c2c2c;
+    }
+
+    header .ampersand {
+      display: block;
+      font-size: 1.6rem;
+      color: #b08d6e;
+      margin: 0.3rem 0;
+    }
+
+    header p {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      color: #777;
+      font-style: italic;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      padding: 1rem;
+      border-bottom: 1px solid #e8e3dd;
+    }
+
+    nav a {
+      text-decoration: none;
+      color: #b08d6e;
+      font-size: 0.95rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+
+    nav a:hover, nav a.active {
+      border-bottom-color: #b08d6e;
+    }
+
+    section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    section h2 {
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: #2c2c2c;
+      margin-bottom: 1rem;
+      text-align: center;
+      letter-spacing: 0.03em;
+    }
+
+    section p {
+      text-align: center;
+      color: #666;
+      line-height: 1.7;
+      max-width: 600px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .tables-container {
+      width: 100%;
+      border: 1px solid #e8e3dd;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      margin-top: 1.5rem;
+    }
+
+    .tables-container iframe {
+      width: 100%;
+      height: 80vh;
+      border: none;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      font-size: 0.85rem;
+      color: #aaa;
+      border-top: 1px solid #e8e3dd;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>
+      Juan Carlos
+      <span class="ampersand">&</span>
+      Maddy
+    </h1>
+    <p>We're getting married!</p>
+  </header>
+
+  <nav>
+    <a href="#tables" class="active">Table Assignments</a>
+  </nav>
+
+  <section id="tables">
+    <h2>Table Assignments</h2>
+    <p>Hover over each seat to see guest details including menu selections and dietary notes.</p>
+    <div class="tables-container">
+      <iframe src="data/tables.html" title="Table Assignments"></iframe>
+    </div>
+  </section>
+
+  <footer>
+    Juan Carlos & Maddy
+  </footer>
+
+</body>
+</html>

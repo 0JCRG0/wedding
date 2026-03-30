@@ -12,6 +12,13 @@ from transform_rsvp import RSVP, clean, resolve_rsvp
 
 OUTPUT = "data/stats/final_guest_list.csv"
 
+MEAL_TO_SPANISH = {
+    "Salmon terrine": "Terrina de dos salmones",
+    "Burrata with prosciutto": "Burrata con prosciutto",
+    "Beef fillet with mushroom risotto": "Filete de res con risotto de hongos",
+    "Salmon with vegetable risotto": "Salmón con risotto de verduras",
+}
+
 OUTPUT_COLUMNS = [
     "member",
     "is_plus_one",
@@ -65,8 +72,10 @@ def main():
     plus_ones["notes"] = df.loc[plus_ones_mask, "Notes"].values
     plus_ones["table_name"] = df.loc[plus_ones_mask, "Table name"].values
 
-    # Combine and save
+    # Combine and translate meals to Spanish
     guest_list = pd.concat([primary, plus_ones], ignore_index=True)
+    guest_list["entry"] = guest_list["entry"].map(MEAL_TO_SPANISH).fillna(guest_list["entry"])
+    guest_list["main_course"] = guest_list["main_course"].map(MEAL_TO_SPANISH).fillna(guest_list["main_course"])
     guest_list = guest_list[OUTPUT_COLUMNS]
     guest_list.to_csv(OUTPUT, index=False)
 

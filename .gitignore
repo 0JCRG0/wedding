@@ -2,9 +2,9 @@
 *.csv
 /__pycache__/
 .DS_Store
-*.html
 *.zip
-data/
+data/*
+!data/tables.html
 .env
 .ipynb_checkpoints/
 *.ipynb
