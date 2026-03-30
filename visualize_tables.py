@@ -123,7 +123,7 @@ def build_figure(df, view):
 
         xs, ys, hovers, colors = [], [], [], []
         for i, (_, guest) in enumerate(guests.iterrows()):
-            angle = 2 * math.pi * i / n - math.pi / 2
+            angle = math.pi / 2 - 2 * math.pi * i / n
             xs.append(cx + TABLE_RADIUS * math.cos(angle))
             ys.append(cy + TABLE_RADIUS * math.sin(angle))
             hovers.append(make_hover(guest))
@@ -160,7 +160,7 @@ def build_figure(df, view):
 
         # Guest name labels
         for i, (_, guest) in enumerate(guests.iterrows()):
-            angle = 2 * math.pi * i / n - math.pi / 2
+            angle = math.pi / 2 - 2 * math.pi * i / n
             lx = cx + (TABLE_RADIUS + 0.35) * math.cos(angle)
             ly = cy + (TABLE_RADIUS + 0.35) * math.sin(angle)
             first_name = guest["member"].split()[0]
