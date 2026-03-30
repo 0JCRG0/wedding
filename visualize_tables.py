@@ -12,6 +12,8 @@ INPUT = "data/stats/final_guest_list.csv"
 OUTPUT_DIR = "data"
 
 TABLE_RADIUS = 1.0
+RECT_W = 1.4  # Monarca rectangle half-width
+RECT_H = 0.5  # Monarca rectangle half-height
 
 # Venue layout positions (x, y) matching the actual floor plan.
 # Left = Patio 1, Right = Patio 2, Center = Monarca (Novios).
@@ -28,7 +30,7 @@ TABLE_POSITIONS = {
     "Alas de Cristal":    (1 * SP,       0 * SP),
     "Aurora":             (2 * SP,       0 * SP),
     # --- Monarca (center, bottom of dance floor) ---
-    "Monarca":           (3.5 * SP,    -1.5 * SP),
+    "Monarca":           (3.6 * SP,    -1.2 * SP),
     # --- Patio 2 (right) ---
     # Top row
     "Zafiro":            (5.5 * SP,     1.6 * SP),
@@ -85,6 +87,26 @@ def get_color(guest, view):
         return VIEW_COLORS[view]["colors"].get(guest["main_course"], "#CCCCCC")
 
 
+def rect_perimeter_point(cx, cy, hw, hh, t):
+    """Return (x, y, outward_angle) for parameter t in [0, 1) along a rectangle centred at (cx, cy)."""
+    perim = 4 * (2 * hw + 2 * hh)  # not needed — we work in normalised t
+    # Walk the perimeter: top → right → bottom → left
+    sides = [
+        (2 * hw, lambda f: (cx - hw + f * 2 * hw, cy + hh,  math.pi / 2)),   # top edge (left→right)
+        (2 * hh, lambda f: (cx + hw,              cy + hh - f * 2 * hh, 0)),  # right edge (top→bottom)
+        (2 * hw, lambda f: (cx + hw - f * 2 * hw, cy - hh, -math.pi / 2)),   # bottom edge (right→left)
+        (2 * hh, lambda f: (cx - hw,              cy - hh + f * 2 * hh, math.pi)),  # left edge (bottom→top)
+    ]
+    total = sum(s[0] for s in sides)
+    d = (t % 1.0) * total
+    for length, fn in sides:
+        if d <= length:
+            x, y, angle = fn(d / length if length else 0)
+            return x, y, angle
+        d -= length
+    return sides[-1][1](1.0)  # fallback
+
+
 def build_figure(df, view):
     tables = sorted(df["table_name"].unique())
 
@@ -121,24 +143,54 @@ def build_figure(df, view):
         guests = guests.reset_index(drop=True)
         n = len(guests)
 
+        is_rect = table_name == "Monarca"
+
         xs, ys, hovers, colors = [], [], [], []
+        label_positions = []
         for i, (_, guest) in enumerate(guests.iterrows()):
-            angle = math.pi / 2 - 2 * math.pi * i / n
-            xs.append(cx + TABLE_RADIUS * math.cos(angle))
-            ys.append(cy + TABLE_RADIUS * math.sin(angle))
+            if is_rect:
+                # Seat guests evenly along the bottom edge (left to right)
+                frac = (i + 1) / (n + 1)  # even spacing within edge
+                x = cx - RECT_W + frac * 2 * RECT_W
+                y = cy - RECT_H
+                angle = -math.pi / 2  # outward = downward
+                xs.append(x)
+                ys.append(y)
+                label_positions.append((
+                    x + 0.35 * math.cos(angle),
+                    y + 0.35 * math.sin(angle),
+                ))
+            else:
+                angle = math.pi / 2 - 2 * math.pi * i / n
+                xs.append(cx + TABLE_RADIUS * math.cos(angle))
+                ys.append(cy + TABLE_RADIUS * math.sin(angle))
+                label_positions.append((
+                    cx + (TABLE_RADIUS + 0.35) * math.cos(angle),
+                    cy + (TABLE_RADIUS + 0.35) * math.sin(angle),
+                ))
             hovers.append(make_hover(guest))
             colors.append(get_color(guest, view))
 
-        # Table circle outline
-        circle_x = [cx + TABLE_RADIUS * 1.25 * math.cos(a) for a in [i * 2 * math.pi / 60 for i in range(61)]]
-        circle_y = [cy + TABLE_RADIUS * 1.25 * math.sin(a) for a in [i * 2 * math.pi / 60 for i in range(61)]]
-        fig.add_trace(go.Scatter(
-            x=circle_x, y=circle_y,
-            mode="lines",
-            line=dict(color="rgba(180,180,180,0.4)", width=1.5),
-            hoverinfo="skip",
-            showlegend=False,
-        ))
+        # Table outline
+        if is_rect:
+            pad = 0.25
+            fig.add_shape(
+                type="rect",
+                x0=cx - RECT_W - pad, y0=cy - RECT_H - pad,
+                x1=cx + RECT_W + pad, y1=cy + RECT_H + pad,
+                fillcolor="rgba(0,0,0,0)",
+                line=dict(color="rgba(180,180,180,0.4)", width=1.5),
+            )
+        else:
+            circle_x = [cx + TABLE_RADIUS * 1.25 * math.cos(a) for a in [i * 2 * math.pi / 60 for i in range(61)]]
+            circle_y = [cy + TABLE_RADIUS * 1.25 * math.sin(a) for a in [i * 2 * math.pi / 60 for i in range(61)]]
+            fig.add_trace(go.Scatter(
+                x=circle_x, y=circle_y,
+                mode="lines",
+                line=dict(color="rgba(180,180,180,0.4)", width=1.5),
+                hoverinfo="skip",
+                showlegend=False,
+            ))
 
         # Table label
         fig.add_annotation(
@@ -160,9 +212,7 @@ def build_figure(df, view):
 
         # Guest name labels
         for i, (_, guest) in enumerate(guests.iterrows()):
-            angle = math.pi / 2 - 2 * math.pi * i / n
-            lx = cx + (TABLE_RADIUS + 0.35) * math.cos(angle)
-            ly = cy + (TABLE_RADIUS + 0.35) * math.sin(angle)
+            lx, ly = label_positions[i]
             first_name = guest["member"].split()[0]
             fig.add_annotation(
                 x=lx, y=ly,
