@@ -4,7 +4,7 @@
 .DS_Store
 *.zip
 data/*
-!data/tables.html
+!data/tables_*.html
 .env
 .ipynb_checkpoints/
 *.ipynb
