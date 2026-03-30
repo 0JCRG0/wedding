@@ -10,7 +10,7 @@ import pandas as pd
 from import_rsvp import fetch_rsvp_data, to_csv
 from transform_rsvp import RSVP, clean, resolve_rsvp
 
-OUTPUT = "data/final_guest_list.csv"
+OUTPUT = "data/stats/final_guest_list.csv"
 
 OUTPUT_COLUMNS = [
     "member",

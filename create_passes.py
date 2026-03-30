@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["wallet-py3k", "Pillow", "python-dotenv"]
+# dependencies = ["wallet-py3k", "Pillow", "python-dotenv", "google-auth"]
 # ///
 
 """
@@ -21,9 +21,12 @@ import unicodedata
 from enum import Enum
 from pathlib import Path
 
+import google.auth.jwt
+from google.oauth2 import service_account
+
 from dotenv import load_dotenv
 from PIL import Image
-from wallet.models import EventTicket, Field, Location, Pass
+from wallet.models import EventTicket, Location, Pass
 
 load_dotenv()
 
@@ -59,23 +62,31 @@ ARRIVAL_DISPLAY = "5:00pm."
 ARRIVAL_BACK = "5:00pm. Ultima entrada es a las 5:25pm."
 RELEVANT_DATE = "2026-04-11T17:00:00-06:00"
 
-# ── Back side links ─────────────────────────────────────────────
+# ── Shared links ───────────────────────────────────────────────
+POV_APP_URL = "https://pov.camera/qr/9A2F42D8-B207-41E8-8D34-EBA15D7277EB"
+MAPS_URL = "https://share.google/FPZdT01tpp3QTF02w"
+WEBSITE_URL = "https://www.reyesvann.com/"
+REGISTRY_URL = "https://www.reyesvann.com/registry"
+
+# ── Back side links (Apple) ────────────────────────────────────
 BACK_FIELDS = [
     ("venue", "Donde", VENUE_ADDRESS),
     ("arrival_info", "Llegada", ARRIVAL_BACK),
-    (
-        "pov_app",
-        "POV app (click para unirte!)",
-        "https://pov.camera/i/1818B396-FCC1-456A-A3EA-3D6000CEED51",
-    ),
-    (
-        "maps_link",
-        "Google Maps Link al salon",
-        "https://share.google/FPZdT01tpp3QTF02w",
-    ),
-    ("website", "Sitio Web", "https://www.reyesvann.com/"),
-    ("registry", "Mesa de Regalos", "https://www.reyesvann.com/registry"),
+    ("pov_app", "POV app (click para unirte!)", POV_APP_URL),
+    ("maps_link", "Google Maps Link al salon", MAPS_URL),
+    ("website", "Sitio Web", WEBSITE_URL),
+    ("registry", "Mesa de Regalos", REGISTRY_URL),
 ]
+
+# ── Google Wallet Configuration ────────────────────────────────
+WALLET_ISSUER_ID = os.environ["WALLET_ISSUER_ID"]
+SERVICE_ACCOUNT_FILE = Path("service_account.json")
+GOOGLE_SCOPES = ["https://www.googleapis.com/auth/wallet_object.issuer"]
+
+IMAGES_BASE_URL = "https://raw.githubusercontent.com/0JCRG0/wedding/main/images"
+GOOGLE_CLASS_SUFFIX = "boda-reyes-vann-2026"
+GOOGLE_CLASS_ID = f"{WALLET_ISSUER_ID}.{GOOGLE_CLASS_SUFFIX}"
+GOOGLE_HEX_BG_COLOR = "#151515"
 
 # ── Image specs for Apple Wallet ────────────────────────────────
 # Background = full-pass butterfly (blurred by iOS)
@@ -255,7 +266,7 @@ def generate_passes_for_table(
         _generate_apple_passes(table_name, table_guests)
 
     if wallet_type in (WalletType.GOOGLE, WalletType.BOTH):
-        print("Google Wallet generation not yet implemented.")
+        _generate_google_passes(table_name, table_guests)
 
 
 def _generate_apple_passes(table_name: str, table_guests: list[dict]) -> None:
@@ -279,6 +290,113 @@ def _generate_apple_passes(table_name: str, table_guests: list[dict]) -> None:
         print(f"  {guest['member']} -> {output_path}")
 
     print(f"Generated {len(table_guests)} Apple Wallet passes in {output_dir}")
+
+
+# ── Google Wallet ──────────────────────────────────────────────
+
+
+
+def _build_event_ticket_object(guest: dict, image_key: str, serial: int) -> dict:
+    """Build one EventTicketObject for a guest."""
+    member = guest["member"]
+    entry = format_food(guest["entry"])
+    main_course = format_food(guest["main_course"])
+    object_suffix = sanitize_filename(member)
+    object_id = f"{WALLET_ISSUER_ID}.wedding-{object_suffix}"
+    hero_image_url = f"{IMAGES_BASE_URL}/{image_key}_google.png"
+
+    return {
+        "id": object_id,
+        "classId": GOOGLE_CLASS_ID,
+        "state": "ACTIVE",
+        "ticketHolderName": member,
+        "hexBackgroundColor": GOOGLE_HEX_BG_COLOR,
+        "heroImage": {
+            "sourceUri": {
+                "uri": hero_image_url,
+            },
+            "contentDescription": {
+                "defaultValue": {"language": "es", "value": guest["table_name"]}
+            },
+        },
+        "textModulesData": [
+            {"id": "date", "header": "FECHA", "body": EVENT_DATE_DISPLAY},
+            {"id": "arrival", "header": "LLEGADA", "body": ARRIVAL_DISPLAY},
+            {"id": "entry", "header": "ENTRADA", "body": entry},
+            {"id": "main_course", "header": "PLATO FUERTE", "body": main_course},
+            {"id": "arrival_info", "header": "Llegada", "body": ARRIVAL_BACK},
+        ],
+        "locations": [
+            {
+                "latitude": VENUE_LAT,
+                "longitude": VENUE_LON,
+            }
+        ],
+    }
+
+
+def _create_google_save_url(
+    credentials: service_account.Credentials,
+    ticket_object: dict,
+) -> str:
+    """Sign a JWT containing the object, return a Save to Google Wallet URL."""
+    claims = {
+        "iss": credentials.service_account_email,
+        "aud": "google",
+        "origins": [],
+        "typ": "savetowallet",
+        "payload": {
+            "eventTicketObjects": [ticket_object],
+        },
+    }
+    token = google.auth.jwt.encode(credentials.signer, claims)
+    return f"https://pay.google.com/gp/v/save/{token.decode()}"
+
+
+def _generate_google_passes(table_name: str, table_guests: list[dict]) -> None:
+    """Generate Google Wallet save URLs for a list of guests."""
+    image_key = table_to_image_key(table_name)
+
+    credentials = service_account.Credentials.from_service_account_file(
+        str(SERVICE_ACCOUNT_FILE),
+        scopes=GOOGLE_SCOPES,
+    )
+
+    output_dir = OUTPUT_BASE / "google" / image_key
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for i, guest in enumerate(table_guests, start=1):
+        ticket_object = _build_event_ticket_object(guest, image_key, serial=i)
+        save_url = _create_google_save_url(credentials, ticket_object)
+
+        filename = sanitize_filename(guest["member"]) + ".txt"
+        output_path = output_dir / filename
+        output_path.write_text(
+            f"Boda Reyes Vann - {EVENT_DATE_DISPLAY}\n"
+            f"{VENUE_NAME}\n"
+            f"\n"
+            f"Hola {guest['member']}!\n"
+            f"\n"
+            f"Para agregar tu pase a Google Wallet, abre el siguiente enlace:\n"
+            f"\n"
+            f"{save_url}\n"
+            f"\n"
+            f"Si tienes problemas para agregar el pase, por favor mandame un "
+            f"mensaje con tu cuenta de Gmail para darte acceso.\n"
+            f"\n"
+            f"---\n"
+            f"\n"
+            f"Hi {guest['member']}!\n"
+            f"\n"
+            f"To add your pass to Google Wallet, open the link above.\n"
+            f"\n"
+            f"If you have trouble adding the pass, please send me a message "
+            f"with your Gmail account so I can give you access.\n",
+            encoding="utf-8",
+        )
+        print(f"  {guest['member']} -> {output_path}")
+
+    print(f"Generated {len(table_guests)} Google Wallet passes in {output_dir}")
 
 
 # ── CLI ─────────────────────────────────────────────────────────
